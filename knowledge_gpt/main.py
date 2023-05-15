@@ -19,13 +19,13 @@ def clear_submit():
     st.session_state["submit"] = False
 
 
-st.set_page_config(page_title="KnowledgeGPT", page_icon="📖", layout="wide")
-st.header("📖KnowledgeGPT")
+st.set_page_config(page_title="Doc Chain GPT", page_icon="📖", layout="wide")
+st.header("📖Document ChainGPT")
 
 sidebar()
 
 uploaded_file = st.file_uploader(
-    "Upload a pdf, docx, or txt file",
+    "Upload a pdf, docx, or txt file on the SYSTChain",
     type=["pdf", "docx", "txt"],
     help="Scanned documents are not supported yet!",
     on_change=clear_submit,
@@ -44,7 +44,7 @@ if uploaded_file is not None:
         raise ValueError("File type not supported!")
     text = text_to_docs(doc)
     try:
-        with st.spinner("Indexing document... This may take a while⏳"):
+        with st.spinner("Indexing document on SYST Langchain... This may take a while⏳"):
             index = embed_docs(text)
         st.session_state["api_key_configured"] = True
     except OpenAIError as e:
