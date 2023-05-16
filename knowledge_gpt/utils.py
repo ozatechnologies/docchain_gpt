@@ -1,6 +1,6 @@
 import re
 from io import BytesIO
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Union
 
 import docx2txt
 import streamlit as st
@@ -51,10 +51,8 @@ def parse_txt(file: BytesIO) -> str:
     return text
 
 
-@st.cache(allow_output_mutation=True)
-def text_to_docs(text: str | List[str]) -> List[Document]:
-    """Converts a string or list of strings to a list of Documents
-    with metadata."""
+def text_to_docs(text: Union[str, List[str]]) -> List[Document]:
+    """Converts a string or list of strings to a list of Documents with metadata."""
     if isinstance(text, str):
         # Take a single string as one page
         text = [text]
@@ -84,60 +82,40 @@ def text_to_docs(text: str | List[str]) -> List[Document]:
     return doc_chunks
 
 
-@st.cache(allow_output_mutation=True, show_spinner=False)
-def embed_docs(docs: List[Document]) -> VectorStore:
+def embed_docs(docs: List[Document], openai_api_key: str) -> VectorStore:
     """Embeds a list of Documents and returns a FAISS index"""
 
-    if not st.session_state.get("OPENAI_API_KEY"):
-        raise AuthenticationError(
-            "Enter your OpenAI API key in the sidebar. You can get a key at"
-            " https://platform.openai.com/account/api-keys."
-        )
-    else:
-        # Embed the chunks
-        embeddings = OpenAIEmbeddings(
-            openai_api_key=st.session_state.get("OPENAI_API_KEY")
-        )  # type: ignore
-        index = FAISS.from_documents(docs, embeddings)
+    # Embed the chunks
+    embeddings = OpenAIEmbeddings(openai_api_key)
+    index = FAISS.from_documents(docs, embeddings)
 
-        return index
+    return index
 
 
-@st.cache(allow_output_mutation=True)
 def search_docs(index: VectorStore, query: str) -> List[Document]:
-    """Searches a FAISS index for similar chunks to the query
-    and returns a list of Documents."""
+    """Searches a FAISS index for similar chunks to the query and returns a list of Documents."""
 
     # Search for similar chunks
     docs = index.similarity_search(query, k=5)
     return docs
 
 
-@st.cache(allow_output_mutation=True)
-def get_answer(docs: List[Document], query: str) -> Dict[str, Any]:
+def get_answer(docs: List[Document], query: str, openai_api_key: str) -> Dict[str, Any]:
     """Gets an answer to a question from a list of Documents."""
 
     # Get the answer
-
     chain = load_qa_with_sources_chain(
-        OpenAI(
-            temperature=0, openai_api_key=st.session_state.get("OPENAI_API_KEY")
-        ),  # type: ignore
+        OpenAI(temperature=0, openai_api_key=openai_api_key),
         chain_type="stuff",
         prompt=STUFF_PROMPT,
     )
 
-    # Cohere doesn't work very well as of now.
-    # chain = load_qa_with_sources_chain(
-    #     Cohere(temperature=0), chain_type="stuff", prompt=STUFF_PROMPT  # type: ignore
-    # )
     answer = chain(
         {"input_documents": docs, "question": query}, return_only_outputs=True
     )
     return answer
 
 
-@st.cache(allow_output_mutation=True)
 def get_sources(answer: Dict[str, Any], docs: List[Document]) -> List[Document]:
     """Gets the source documents for an answer."""
 
@@ -152,7 +130,7 @@ def get_sources(answer: Dict[str, Any], docs: List[Document]) -> List[Document]:
     return source_docs
 
 
-def wrap_text_in_html(text: str | List[str]) -> str:
+def wrap_text_in_html(text: Union[str, List[str]]) -> str:
     """Wraps each text block separated by newlines in <p> tags"""
     if isinstance(text, list):
         # Add horizontal rules between pages
